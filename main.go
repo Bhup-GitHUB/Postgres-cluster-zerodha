@@ -56,6 +56,8 @@ func main() {
 		log.Fatalf("seed orders: %v", err)
 	}
 
+	startReportWorker(ctx, db)
+
 	a := &app{db: db}
 
 	mux := http.NewServeMux()

@@ -11,7 +11,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const defaultDatabaseURL = "postgres://demo:demo@localhost:5432/reports?sslmode=disable"
+const defaultDatabaseURL = "postgres://demo:demo@localhost:55432/reports?sslmode=disable"
 
 func openDB() (*sql.DB, error) {
 	databaseURL := os.Getenv("DATABASE_URL")

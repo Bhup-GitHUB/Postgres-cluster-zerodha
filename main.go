@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -68,10 +69,19 @@ func main() {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	log.Println("server listening on :8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	addr := listenAddr()
+	log.Printf("server listening on %s", addr)
+	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func listenAddr() string {
+	port := strings.TrimSpace(os.Getenv("PORT"))
+	if port == "" {
+		port = "8081"
+	}
+	return ":" + port
 }
 
 func (a *app) createReport(w http.ResponseWriter, r *http.Request) {

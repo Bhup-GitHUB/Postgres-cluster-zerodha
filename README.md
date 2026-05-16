@@ -58,14 +58,15 @@ Run the API:
 go run .
 ```
 
-The server listens on `http://localhost:8080`.
+The server listens on `http://localhost:8081` by default. Set `PORT` to use a
+different port.
 
 ## API
 
 Create a report job:
 
 ```bash
-curl -X POST http://localhost:8080/reports
+curl -X POST http://localhost:8081/reports
 ```
 
 Example response:
@@ -80,7 +81,7 @@ Example response:
 Fetch the report:
 
 ```bash
-curl http://localhost:8080/reports/abc123
+curl http://localhost:8081/reports/abc123
 ```
 
 If the worker is still running:

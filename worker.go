@@ -27,6 +27,25 @@ func startReportWorker(ctx context.Context, db *sql.DB) {
 	}()
 }
 
+func startCleanupWorker(ctx context.Context, db *sql.DB) {
+	ticker := time.NewTicker(30 * time.Second)
+
+	go func() {
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := cleanupOldReportTables(ctx, db); err != nil {
+					log.Printf("cleanup: %v", err)
+				}
+			}
+		}
+	}()
+}
+
 func processNextReportJob(ctx context.Context, db *sql.DB) error {
 	jobID, err := claimQueuedJob(ctx, db)
 	if err == sql.ErrNoRows {
@@ -127,4 +146,60 @@ func markJobFailed(ctx context.Context, db *sql.DB, jobID string, cause error) {
 
 func resultTableName(jobID string) string {
 	return "report_result_" + jobID
+}
+
+func cleanupOldReportTables(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, result_table
+		FROM report_jobs
+		WHERE status IN ('done', 'failed')
+			AND completed_at < now() - interval '2 minutes'
+		ORDER BY completed_at
+		LIMIT 25
+	`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type staleJob struct {
+		id          string
+		resultTable sql.NullString
+	}
+
+	var jobs []staleJob
+	for rows.Next() {
+		var job staleJob
+		if err := rows.Scan(&job.id, &job.resultTable); err != nil {
+			return err
+		}
+		jobs = append(jobs, job)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, job := range jobs {
+		if job.resultTable.Valid {
+			if !tableNamePattern.MatchString(job.resultTable.String) {
+				return fmt.Errorf("unsafe result table name %q", job.resultTable.String)
+			}
+
+			if _, err := db.ExecContext(ctx, fmt.Sprintf(`DROP TABLE IF EXISTS %s`, job.resultTable.String)); err != nil {
+				return err
+			}
+		}
+
+		if _, err := db.ExecContext(ctx, `
+			UPDATE report_jobs
+			SET status = 'cleaned', updated_at = now()
+			WHERE id = $1
+		`, job.id); err != nil {
+			return err
+		}
+
+		log.Printf("cleanup: cleaned report job %s", job.id)
+	}
+
+	return nil
 }

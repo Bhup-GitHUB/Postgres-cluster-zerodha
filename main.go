@@ -57,6 +57,7 @@ func main() {
 	}
 
 	startReportWorker(ctx, db)
+	startCleanupWorker(ctx, db)
 
 	a := &app{db: db}
 
